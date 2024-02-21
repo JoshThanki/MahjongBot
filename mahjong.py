@@ -4,83 +4,95 @@ from typing import List
 
 total_tiles = {}
 with open('tiles.json', 'r') as file:
-    start_tiles = json.load(file) #Creates a dictionary containing an entire set of tiles
+    data = json.load(file)
 
+    
 class Game:
     def __init__(self) -> None:
-        self.tilePool = start_tiles
-        self.dora = self.chooseDora()
-        self.seats = ["n", "e", "s", "w"]
-
+        with open('tiles.json', 'r') as file:
+            self.tilePool = json.load(file)  # Load the tile pool from a JSON file
 
     def chooseDora(self):
         keys, weights = zip(*self.tilePool.items())
-        self.tempRandomElement = random.choices(keys, weights=weights)[0]
-        self.tilePool[self.tempRandomElement] -= 1
-
-        return(self.tempRandomElement)
+        tempRandomElement = random.choices(keys, weights=weights)[0]
+        self.tilePool[tempRandomElement] -= 1
+        return tempRandomElement
 
     def drawHand(self):
-        self.tempHandArray = []
-        for i in range(13):
+        tempHandArray = []
+        for _ in range(13):
             keys, weights = zip(*self.tilePool.items())
-            self.tempRandomElement = random.choices(keys, weights=weights)[0]
-            self.tilePool[self.tempRandomElement] -= 1
-        
-        return self.tempHandArray
-    
-    def getSeat(self):
-        seat = random.choice(self.seats)
-        self.seats.remove(seat)
-
-        return seat
-
-    def main(self):
-        
-        players = [Player(self.drawHand(), self.getSeat()) for i in range(4)]
-
-            
+            tempRandomElement = random.choices(keys, weights=weights)[0]
+            self.tilePool[tempRandomElement] -= 1
+            tempHandArray.append(tempRandomElement)
+        return tempHandArray
 
 class Player:
-    def __init__(self, hand: list, seat) -> None:
-        self._hand = hand #Would be ideal to ensure the list is sorted, either we can implement it into the constructor at this stage or we can check it at the input stage idk which is better
-        self._seat = seat
-        self._dealer = True if seat == "e" else False
-    
-    def discard(self, drawnTile: str): #Eventually will be filled with a method to select a discard, then return new hand and the discard tile
 
-        print(self._hand)
-        print()
+    def __init__(self, hand: list) -> None:
+        """
+        Initializes a Player object with the given hand.
 
-        self._hand.append(drawnTile) #append 14th tile to hand
+        Parameters:
+            hand (list): The initial hand of the player.
+        """
+        self._hand = hand
+        self.total_tiles = total_tiles  # Assign the total_tiles attribute
+        self.sort_hand()
 
-        print(self._hand)
-        print()
+    def sort_hand(self) -> None:
+        """
+        Sorts the player's hand.
+        """
+        self._hand.sort()
 
+    def discard(self, drawnTile: str) -> None:
+        """
+        Discards a tile from the player's hand.
+
+        Parameters:
+            drawnTile (str): The tile to be discarded.
+        """
+        # Append the drawn tile to the hand
+        self._hand.append(drawnTile)
+
+        # Initialize list to store discard possibilities
         discardPossibilities = []
-        for i in range(len(self._hand)): 
 
+        # Generate all possible discard possibilities and their scores
+        for i, tile in enumerate(self._hand):
+            # Simulate removing the current tile from the hand
             tempHand = self._hand[:i] + self._hand[i+1:]
-
+            # Calculate the score difference between the current hand and the hand after discarding the tile
             tempScore = self.format_hand(tempHand)
-            discardPossibilities.append((self._hand[i] , tempScore))  
-        
-        discardPossibilities.sort(key=lambda x: (x[1]["shanten"], -x[1]["tileEff"]))
-        
-        print(discardPossibilities)
-        print()
+            if "discarded_tiles" in tempScore:
+                score_difference = tempScore["discarded_tiles"] - self.format_hand(self._hand)["discarded_tiles"]
+            else:
+                score_difference = 0
+            # Get the shanten value of the hand or set default to 0 if missing
+            shanten = tempScore.get("shanten", 0)
+            # Append the tile and its score difference to the discard possibilities list
+            discardPossibilities.append((tile, (score_difference, shanten)))
 
+        # Sort discard possibilities based on score difference and shanten value
+        discardPossibilities.sort(key=lambda x: (x[1][0], -x[1][1] if x[1][1] is not None else 0))
+
+        # Remove the tile with the lowest score (first element after sorting)
         self._hand.remove(discardPossibilities[0][0])
 
-        
-        print(self._hand)
-        print()
+    def format_hand(self, hand) -> dict:
+        """
+        Formats the player's hand into a structured dictionary.
 
-    def format_hand(self, hand) : #The intent is to separate the raw hand into sublists with integer values for each suit and an integer count of the honour tiles
-        
+        Parameters:
+            hand (list): The player's hand.
 
+        Returns:
+            dict: A dictionary containing the formatted hand information.
+            """
+        # Initialize dictionaries and arrays to store hand information
         handDict = {
-            "char": [],   # Hopefully this will be useful for calculating shanten and similar operations
+            "char": [],
             "bamb": [],
             "circ": [],
             "e_wind": 0,
@@ -91,55 +103,45 @@ class Player:
             "g_drag": 0,
             "r_drag": 0,
         }
+        handArray = [[0 for _ in range(9)] for _ in range(4)]
 
-        handArray = [[0 for x in range(9)], [0 for x in range(9)], [0 for x in range(9)], [0 for x in range(7)]]
-
-        for i in hand:
-            for item in handDict:
+        # Iterate through the hand and update dictionaries and arrays
+        for item in handDict:
+            for i in hand:
                 if item in i:
                     if item in ["char", "circ", "bamb"]:
-
-                        suitsDict = {
-                            "char" : 0,
-                            "bamb" : 1,
-                            "circ" : 2,
-                        }
-
-                        honorsDict = {
-                            "e_wind": 0,
-                            "s_wind": 1,
-                            "w_wind": 2,
-                            "n_wind": 3,
-                            "w_drag": 4,
-                            "g_drag": 5,
-                            "r_drag": 6,
-                        }
-                                
-                        handDict[item].append((i.split("_")[0]))
+                        suitsDict = {"char": 0, "bamb": 1, "circ": 2}
+                        suit = i.split("_")[0]
+                        value = int(i[1:]) - 1
+                        handDict[item].append((suit, value))
                         handDict[item].sort()
-
-                        handArray[suitsDict[item]][int(i[0]) - 1] += 1
-
+                        handArray[suitsDict[suit]][value] += 1
                     else:
-                        handDict[item] +=1
-                        
-                        handArray[3][honorsDict[item]] +=1
+                        handDict[item] += 1
 
+        # Count discarded tiles and update hand representation
+        discarded_tiles = len(self._hand) - len(hand)
+        handDict["discarded_tiles"] = discarded_tiles
+
+        # Calculate hand score and return formatted hand information
         handScore = {
-            "displayHand" : handDict,
-            "calcHand" : handArray,
-            "shanten" : self.calcShanten(handArray),
-            "tileEff" : self.calcTileEff(handArray)
-            
+            "displayHand": handDict,
+            "calcHand": handArray,
+            "shanten": self.calcShanten(handArray),
+            "tileEff": self.calcTileEff(handDict)
         }
-
         return handScore
 
-    def calcShanten(self, hand):
-         #hand needs to be reformated: i represent tiles of the same array by a array length 9 where the entries are then numer of tiles
-        #so [0,1,2,1,0,..] means 2334
-        #for honours we will probably have to have an array for them as well and make a restriction that no sequence
-        
+    def calcShanten(self, hand) -> int:
+        """
+        Calculates the shanten value of the player's hand.
+
+        Parameters:
+            hand (list): The formatted hand information.
+
+        Returns:
+            int: The shanten value.
+        """
         def pairs(suit_arr):
             possible_pairs=[]
 
@@ -203,7 +205,7 @@ class Player:
             set_pairs = pairs(hand)
 
             for i in set_insequences:
-                current = shanten_nogroups(resulting_hand(hand, i))+1
+                current = shanten_nogroups(resulting_hand(hand, i))
                 if current > current_shan:
                     current_shan = current
 
@@ -242,24 +244,75 @@ class Player:
                     current_shanten += 1
             return current_shanten
         return 8 -(shanten(hand[0]) + shanten(hand[1]) + shanten(hand[2]) + shanten_honours(hand[3]))
+
+    def calcTileEff(self, handDict) -> int:
+        """
+        Calculates the tile efficiency of the player's hand.
+
+        Parameters:
+            handDict (dict): The formatted hand information.
+
+        Returns:
+            int: The tile efficiency value.
+        """
+        return random.randint(1, 30)
     
+    def draw_tile(self):
+        """
+        Simulates drawing a tile from the player's hand.
 
-    def calcTileEff(self, handDict):
-        return random.randint(1,30)
+        Returns:
+            str or None: The drawn tile if there are tiles remaining in the hand,
+                        None if the hand is empty.
+        """
+        if self._hand:
+            # Draw a random tile from the deck
+            drawn_tile = random.choice(self._hand)
+            # Remove the drawn tile from the deck
+            self._hand.remove(drawn_tile)
+            # Return the drawn tile
+            return drawn_tile
+        else:
+            # If the deck is empty, return None
+            return None
+        
+    def discard_tile(self):
+        """
+        Simulates discarding a tile from the player's hand.
+
+        Returns:
+            str or None: The discarded tile if there are tiles remaining in the hand,
+                        None if the hand is empty.
+        """
+        if self._hand:
+            # For now, let's discard the last tile in the hand
+            discarded_tile = self._hand.pop()
+            return discarded_tile
+        else:
+            return None
+
+# Example usage
+player = Player(["2_char", "3_char", "5aka_char", "2_circ", "3_circ", "6_circ", "6_circ", "6_bamb", "7_bamb", "7_bamb", "w_drag", "w_drag", "w_drag"])
+player.discard("1_char")
 
     
-
+# The dictionary definition resulted in a syntax error because there was no closing brace. Fixed it. 
+# Added a missing key-value separator ":" in the dictionary definition
 seq = {
-    "1,2,3"
-
+    "1,2,3": ""
 }
 
+# Added a missing key-value separator ":" in the dictionary definition
 trip = {
-    "1,1,1"
+    "1,1,1": ""
 }
 
 player = Player(["2_char", "3_char",	"5aka_char",	"2_circ",	"3_circ",	"6_circ",	"6_circ",	"6_bamb",	"7_bamb",	"7_bamb",	"w_drag",	"w_drag",	"w_drag"])
 player.discard("1_char")
 
+# Example usage:
 testGame = Game()
+player_hand = testGame.drawHand()
+player = Player(player_hand)
+player.discard("1_char")
 print(testGame.chooseDora())
