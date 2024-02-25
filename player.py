@@ -167,7 +167,7 @@ class Player:
             "webFormat" : formattedHand["webFormat"],
             "shanten" : self.calcShanten(formattedHand["calcHand"]),
             "tileEff" : self.calcTileEff(hand, self._game.discardPiles["total"]),
-            "discardPile" : self._game.discardPiles["total"],
+            "discardPile" : dict(Counter(self._game.discardPiles["total"])),
             "dora": self._game.dora
         }
 
