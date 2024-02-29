@@ -2,9 +2,10 @@
 from collections import Counter
 import json
 import random
+from typing import List
 
 class Player:
-    def __init__(self, hand: list, seat, game) -> None:
+    def __init__(self, hand: list, seat: str, game) -> None:
         self._hand = hand #Would be ideal to ensure the list is sorted, either we can implement it into the constructor at this stage or we can check it at the input stage idk which is better
         self._seat = seat
         self._game = game
@@ -99,7 +100,7 @@ class Player:
         return shanten
         
 
-    def format_hand(self,hand):
+    def format_hand(self, hand):
 
         handDict = {
             "char": [],   # Hopefully this will be useful for calculating shanten and similar operations
@@ -151,7 +152,7 @@ class Player:
         
         formattedHand = {
             "displayHand" : handDict,
-            "calcHand" : handArray,
+            "calcHand" : handArray, #Note the arrays are in the following order: [Characters, Bamboos, Circles, Honours]
             "webFormat" : self.webFormat(handArray),
         }
 
@@ -173,7 +174,7 @@ class Player:
 
         return handScore
 
-    def calcShanten(self, handArray):
+    def calcShanten(self, handArray: list):
 
         def pairs(suit_arr):
             possible_pairs=[]
@@ -388,7 +389,7 @@ class Player:
         return count, kinds, tilesInHand, tilesInDiscard, tilesInDora
     
     def countInList(self, lis, elem):
-        count = 0
+        count = 0 
         dic = Counter(lis)
         if elem in dic:
             count = dic[elem]
@@ -435,3 +436,178 @@ class Player:
         
 
         return (discardTile, shanten)
+
+    def checkForSideWait(self, tenpaiHandStrArray: List[str], winTile: str):
+
+        #Duplicate code below
+
+        def splits_nogroups(hand):
+            set_insequences = incomplete_sequences(hand)
+            current_shan=0
+            set_pairs = pairs(hand)
+            pair_bool = False
+
+            for i in set_pairs:
+                current = splits_nogroups(resulting_hand(hand, i))[0]+1
+                if current>current_shan:
+                    current_shan = current
+                    pair_bool = True
+
+            for i in set_insequences:
+                current = splits_nogroups(resulting_hand(hand, i))[0]+1
+                if current > current_shan:
+                    current_shan = current
+                    pair_bool = splits_nogroups(resulting_hand(hand, i))[1]
+
+            return current_shan, pair_bool
+
+        def splits(g, hand):                  #******
+            current_g_n = g                   #number of groups
+            current_i_n = 0                   #number of taatsu
+            pair_presance = False             #used for an edge case(s?)                            
+            set_seq = complete_sequences(hand)
+            set_triplets = triplets(hand)
+
+            for j in set_seq:
+                current_split = splits(g+1, resulting_hand(hand,j))   
+                current = current_split[0]
+                if current>current_g_n:
+                    current_g_n = current
+                    current_i_n = current_split[1]
+                    pair_presance = current_split[2]   #*
+                elif current == current_g_n:
+                    if current_split[1] > current_i_n:
+                        current_i_n = current_split[1]
+                        pair_presance = current_split[2]   #*
+
+            for j in set_triplets:
+                current_split = splits(g+1, resulting_hand(hand,j))
+                current = current_split[0]
+                if current>current_g_n:
+                    current_g_n = current
+                    current_i_n = current_split[1]
+                    pair_presance = current_split[2]   #*
+                elif current == current_g_n:
+                    if current_split[1] > current_i_n:
+                        current_i_n = current_split[1]
+                        pair_presance = current_split[2]   #*
+                        
+            if (not set_seq) and (not set_triplets):     #if no more groups then counts maximum of taatsu    
+                s=splits_nogroups(hand)
+                return g, s[0], s[1]
+
+            return current_g_n,current_i_n,pair_presance
+
+        def pairs(suit_arr):
+            possible_pairs=[]
+
+            for i in range(9):
+                if suit_arr[i]>1:
+                    out = [0]*9
+                    out[i] = 2
+                    possible_pairs.append(out)
+            return possible_pairs
+        
+        def triplets(suit_arr):
+            possible_triplets=[]
+
+            for i in range(9):
+                if suit_arr[i]>2:
+                    out = [0]*9
+                    out[i] = 3
+                    possible_triplets.append(out)
+            return possible_triplets
+        
+        def complete_sequences(suit_arr):
+            possible_sequences=[]
+            for i in range(2,9):
+                if suit_arr[i]>0 and suit_arr[i-1]>0 and suit_arr[i-2]>0:
+                    out = [0]*9
+                    out[i]=1
+                    out[i-1]=1
+                    out[i-2]=1
+                    possible_sequences.append(out)
+            return possible_sequences
+        
+        def incomplete_sequences(suit_arr):
+            possible_insequences=[]
+            if suit_arr[0]>0 and suit_arr[1]>0:
+                out = [0]*9
+                out[0]=1
+                out[1]=1
+                possible_insequences.append(out)
+            for i in range(2,9):
+                if suit_arr[i]>0 and suit_arr[i-1]>0:
+                    out = [0]*9
+                    out[i]=1
+                    out[i-1]=1
+                    possible_insequences.append(out)
+                if suit_arr[i]>0 and suit_arr[i-2]>0:
+                    out = [0]*9
+                    out[i]=1
+                    out[i-2]=1
+                    possible_insequences.append(out)
+            return possible_insequences
+        
+        def resulting_hand(arr1,arr2):
+            out=[0]*9
+            for i in range(9):
+                out[i] = arr1[i] - arr2[i]
+            return out
+        
+        #Non-duplicate code begins below
+
+        def calcHand_addition(arr1,arr2): #Slight variation on resulting_hand function to add instead of subtract
+            out=[0]*9
+            for i in range(9):
+                out[i] = arr1[i] + arr2[i]
+            return out
+
+        winTileRawNum = int(winTile[0]) #Converts the winning tile to an integer
+        winTileArrPosition = winTileRawNum - 1
+        winTileSuit = -1
+        if "char" in winTile: #Gets array position of the suit containing winning tile
+            winTileSuit = 0
+        elif "bamb" in winTile:
+            winTileSuit = 1
+        elif "circ" in winTile:
+            winTileSuit = 2
+        else:
+            return(False)
+        
+        winTileCalcHand = self.format_hand([winTile])["calcHand"] #Get data in required format
+        tenpaiCalcHand = self.format_hand(tenpaiHandStrArray)["calcHand"]
+        combinedWinSuitArray = calcHand_addition(tenpaiCalcHand[winTileSuit], winTileCalcHand[winTileSuit]) #The hand including the winning tile
+        
+        def checkAbove(_combinedWinSuitArray: List[int], _winTileArrPosition: int): #Checks for a valid protorun above the winning tile
+            maxSplits = splits(0, _combinedWinSuitArray)
+            if _combinedWinSuitArray[_winTileArrPosition + 1] > 0 and _combinedWinSuitArray[_winTileArrPosition + 2] > 0: #Checks tiles for a protorun exist
+                copyArray = _combinedWinSuitArray[:]
+                for i in range(3): #Subtract the run, including the winning tile and protorun, from the suit
+                    copyArray[_winTileArrPosition + i] = copyArray[_winTileArrPosition + i] - 1
+                newSplits = splits(0, copyArray)
+                if maxSplits[0] - newSplits[0] == 1 and maxSplits[2] == newSplits[2]: #Check that there is only one less group when removing the run from the final hand, and that pair presence stays unchanged
+                    return(True)
+                else:
+                    return(False)
+        
+        def checkBelow(_combinedWinSuitArray: List[int], _winTileArrPosition: int): #Same as checkAbove, but checks below
+            maxSplits = splits(0, _combinedWinSuitArray)
+            if _combinedWinSuitArray[_winTileArrPosition - 1] > 0 and _combinedWinSuitArray[_winTileArrPosition - 2] > 0:
+                copyArray = _combinedWinSuitArray[:]
+                for i in range(3):
+                    copyArray[_winTileArrPosition - i] = copyArray[_winTileArrPosition - i] - 1
+                newSplits = splits(0, copyArray)
+                if maxSplits[0] - newSplits[0] == 1 and maxSplits[2] == newSplits[2]:
+                    return(True)
+                else:
+                    return(False)
+            else:
+                return(False)
+
+        if winTileRawNum <= 3:
+            return(checkAbove(combinedWinSuitArray, winTileArrPosition))
+        elif winTileRawNum >= 7: 
+            return(checkBelow(combinedWinSuitArray, winTileArrPosition))
+        else:
+            return(checkAbove(combinedWinSuitArray, winTileArrPosition) or checkBelow(combinedWinSuitArray, winTileArrPosition))
