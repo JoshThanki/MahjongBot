@@ -1,7 +1,3 @@
-import json
-import random
-from typing import List
-
 from game import Game
 from player import Player
 
@@ -13,9 +9,5 @@ total_tiles = {}
 # player.discard("1_char")
 
 
-game = Game()
+game = Game(True)
 game.main()
-
-
-
-

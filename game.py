@@ -8,11 +8,12 @@ with open('tiles.json', 'r') as file:
     start_tiles = json.load(file) #Creates a dictionary containing an entire set of tiles
 
 class Game:
-    def __init__(self, prevWind = "e") -> None:
+    def __init__(self, logs: bool=False, prevWind: str="e") -> None:
         self.tilePool = start_tiles
         self.turn = 0
         self.dora = []
         self.prevWind = prevWind
+        self.logs = logs
         self.windDict = {
                         "e": "East",
                         "s": "South",
@@ -53,7 +54,13 @@ class Game:
         seat = self.seats.pop(0)
         return seat
 
+    def writeLogs(self, txt: str):
+        with open("logs.txt", "a") as file:
+            txt += "\n\n\n"
+            file.write(txt)
+
     def main(self):
+        logsOutput = ""
         while not self.over:
             self.turn+=1
             for player in self.players:
@@ -66,7 +73,13 @@ class Game:
                     
 
                     print(self.windDict[player.getSeat()] , "Player's turn, Turn: ", self.turn)
+                    
+                    logsOutput += f"{self.windDict[player.getSeat()]} , Player's turn, Turn: {self.turn}\n"
+                    logsOutput += f"Drawn tile: {draw}, Current hand: {player.format_hand(player.getHand())['displayHand']}\n"
+
                     discard = player.discard(draw)
+
+
                     if not discard:
                         print(self.windDict[player.getSeat()], "Says: TSUMO!, on turn", self.turn)
                         hand = player.getHand()
@@ -74,8 +87,17 @@ class Game:
                         winningTile = hand[-1]
                         print(("t", winningTile, handScore))
                         print()
+
                         self.over=True
+                        
+                        tenpaiHand = player.getHand()[:]
+                        tenpaiHand.remove(winningTile)
+                        logsOutput += f"{self.windDict[player.getSeat()]} wins by Tsumo, with winning tile {winningTile}. Side wait: {player.checkForSideWait(tenpaiHand, winningTile)}\n"
+                        logsOutput += f"Final hand: {player.format_hand(hand)['displayHand']}\n"
+                        
                         break
+                        
+                    logsOutput += f"Discarded tile: {discard}. Post discard hand: {player.format_hand(player.getHand())['displayHand']}\n\n"
 
                     self.discardPiles[player.getSeat()].append(discard)
                     self.discardPiles["total"].append(discard)
@@ -88,7 +110,13 @@ class Game:
                             print(("r", winningTile, handScore))
                             print()
                             self.over = True
+                            
+                            logsOutput += f"{self.windDict[ronningPlayer.getSeat()]} wins by Ron, with winning tile {winningTile}. Side wait: {ronningPlayer.checkForSideWait(ronningPlayer.getHand(), winningTile)}\n"
+                            logsOutput += f"Final hand: {handScore['displayHand']}\n"
+                            
                             break
+        if self.logs:
+            self.writeLogs(logsOutput)
         
         
 

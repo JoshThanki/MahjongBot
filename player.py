@@ -151,6 +151,7 @@ class Player:
                         handArray[3][honorsDict[item]] +=1
         
         formattedHand = {
+            "hand" : hand,
             "displayHand" : handDict,
             "calcHand" : handArray, #Note the arrays are in the following order: [Characters, Bamboos, Circles, Honours]
             "webFormat" : self.webFormat(handArray),
@@ -164,6 +165,7 @@ class Player:
         formattedHand = self.format_hand(hand)
 
         handScore = {
+            "hand" : hand,
             "displayHand" : formattedHand["displayHand"],
             "webFormat" : formattedHand["webFormat"],
             "shanten" : self.calcShanten(formattedHand["calcHand"]),
